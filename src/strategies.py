@@ -1,30 +1,34 @@
-def candidates(sudoku, i, j):
+def update_neighbors(candidates, i, j, val):
+    for k in range(9):
+        candidates[i][k].discard(val) # Row
+        candidates[k][j].discard(val) # Column
+    
+    # 3x3
+    bi, bj = (i // 3) * 3, (j // 3) * 3
+    for i in range(bi, bi + 3):
+        for j in range(bj, bj + 3):
+            candidates[i][j].discard(val)
 
-    if sudoku[i][j] != 0:
-        return []
-
-    possibles = []
-
-    for value in range(1, 10):
-        if possibleValue(sudoku, i, j, value):
-            possibles.append(value)
-
-    return possibles
-
-def nakedSingles(sudoku):
-    counter=0
-    modification = False
-
+def create_candidates(sudoku):
+    candidates = [[set(range(1, 10)) for value in range(9)] for value in range(9)]
+    
     for i in range(9):
         for j in range(9):
+            if sudoku[i][j] != 0:
+                update_neighbors(candidates, i, j, sudoku[i][j])
+                candidates[i][j] = set()
+    return candidates
 
-            if sudoku[i][j] == 0:
 
-                cadidate_list = candidates(sudoku, i, j)
+def naked_single(sudoku,candidates_matrix):
+    modified = False
+    for i in range(9):
+        for j in range(9):
+            if sudoku[i][j]==0 and len(candidates_matrix[i][j])==1 : 
+                val = list(candidates_matrix[i][j])[0]
+                sudoku[i][j] = val
+                update_neighbors(candidates_matrix, i, j, val)
+                candidates_matrix[i][j] = set()
+                modified=True
+    return modified
 
-                if len(cadidate_list) == 1:
-                    sudoku[i][j] = cadidate_list[0]
-                    modification = True
-                    counter+=1
-
-    return modification,counter
