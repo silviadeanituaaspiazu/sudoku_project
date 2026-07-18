@@ -1,4 +1,9 @@
+import copy
+
 def update_neighbors(candidates, i, j, val):
+    """Updates the candidates of the i row, j column and 3x3 box 
+    for the value val that has been just added to the sudoku"""
+
     for k in range(9):
         candidates[i][k].discard(val) # Fila
         candidates[k][j].discard(val) # Columna
@@ -10,6 +15,8 @@ def update_neighbors(candidates, i, j, val):
             candidates[r][c].discard(val)
 
 def create_candidates(sudoku):
+    """Creates a matrix with the possible numbers for each case"""
+
     candidates = [[set(range(1, 10)) for value in range(9)] for value in range(9)]
     
     for i in range(9):
@@ -61,16 +68,58 @@ def hidden_single(sudoku,candidates_matrix):
                         modified=True
                         count+=1
                         break
-    return modified
+    return modified,count
 
 def next_sudoku(sudoku):
-    candidates_matrix = create_candidates(sudoku) 
-    while True:
+    """Updates the sudoku and returns the amount of added numbers by strategy"""
 
-        modified_naked, _ = naked_single(sudoku, candidates_matrix)
-        modified_hidden = hidden_single(sudoku, candidates_matrix)
+    sudoku_copy = copy.deepcopy(sudoku)
+    candidates_matrix=create_candidates(sudoku_copy)
+
+    total_naked_single = 0
+    total_hidden_single = 0
+   
+    
+    while True:
+        modified_naked, count_n = naked_single(sudoku_copy, candidates_matrix)
+        modified_hidden, count_h = hidden_single(sudoku_copy, candidates_matrix)
         
-        if modified_naked or modified_hidden:
-            continue
-        else:
+        total_naked_single += count_n
+        total_hidden_single += count_h
+        
+        if not modified_naked and not modified_hidden:
             break
+            
+    return sudoku_copy, [total_naked_single, total_hidden_single]
+
+def count_empty(sudoku): 
+    """Count of empty spaces in the sudoku """
+
+    empty_count=0
+    for i in range(9):
+        empty_count += sudoku[i].count(0)
+    return empty_count
+
+def difficulty_eval(*args): 
+    """Returns 
+      -(string) Explanation of the difficulty  
+      -(int) Level of difficulty from 0 to 1
+      """
+    
+    names=['total_empty','total_naked_singles','total_hidden_singles']
+    variables = {}
+    for i, total in enumerate(args):
+        if i < len(names):
+            variables[names[i]]=total
+
+    total_to_fulfill = sum(args)
+
+    if variables["total_naked_singles"]/total_to_fulfill > 0.2 and variables["total_empty"] == 0:
+        return "Level: Easy (Naked Singles and Hidden Singles)",0.2
+    elif variables["total_naked_singles"]/total_to_fulfill < 0.2 and variables["total_empty"] == 0:
+        return "Level: Intermediate (Naked Singles and Hidden Singles)",0.5
+    elif variables["total_empty"] == 0:
+        return "Level: Hard",0.7
+    else:
+        return "Level: Not solved",1
+    
