@@ -39,4 +39,4 @@ def display_sudoku(grid, candidates=None):
                             va='center', ha='center', fontsize=8, color='gray')
     
     ax.axis('off')
-    plt.show()
+    return fig
