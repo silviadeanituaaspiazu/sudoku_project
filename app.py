@@ -1,57 +1,103 @@
 import streamlit as st
 import copy
-from src.strategies import naked_single, hidden_single, create_candidates, next_sudoku, difficulty_eval, count_empty
+from src.strategies import next_sudoku, difficulty_eval, count_empty, create_candidates, apply_level
 from src.display import display_sudoku
 
-#st.title("Sudoku analyser")
 st.set_page_config(page_title="Sudoku", layout="wide")
-st.header("Sudoku analyser",divider=True)
+st.header("Sudoku Difficulty Architect", divider=True)
 st.markdown("Evaluate your sudoku and make it easier")
 
+def update_difficulty(grid):
+    resolved_state, stats, _ = next_sudoku(copy.deepcopy(grid))
+    diff_string, diff_int = difficulty_eval(count_empty(resolved_state), *stats)
+    st.session_state.diff_string = diff_string
+    st.session_state.diff_int = diff_int
+    st.session_state.solved_sudoku = resolved_state
+
 if 'sudoku' not in st.session_state:
-    st.session_state.sudoku = [[0,8,0,6,1,0,0,0,4],[5,0,0,0,0,3,1,8,0],[0,0,0,0,0,0,9,0,0],[3,0,0,0,0,0,0,0,0],[0,0,6,0,0,0,0,2,5],[9,0,0,0,6,0,0,4,0],[0,5,1,3,0,9,7,0,0],[0,0,0,8,0,0,0,0,0],[4,0,0,0,0,0,0,0,0]]
+    st.session_state.sudoku = [
+        [0,8,0,6,1,0,0,0,4], [5,0,0,0,0,3,1,8,0], [0,0,0,0,0,0,9,0,0],
+        [3,0,0,0,0,0,0,0,0], [0,0,6,0,0,0,0,2,5], [9,0,0,0,6,0,0,4,0],
+        [0,5,1,3,0,9,7,0,0], [0,0,0,8,0,0,0,0,0], [4,0,0,0,0,0,0,0,0]
+    ]
     st.session_state.sudoku_original = copy.deepcopy(st.session_state.sudoku)
-    sol, strat = next_sudoku(copy.deepcopy(st.session_state.sudoku))
-    st.session_state.solved_sudoku = sol
-    st.session_state.strategies_total = strat
-    st.session_state.show_result = False
     st.session_state.show_candidates = False
+    
+    st.session_state.simplified_cache = {} 
+    
+    update_difficulty(st.session_state.sudoku)
 
 col1, col2, col3 = st.columns([3, 1, 3])
 
 with col1:
-    user_input = st.text_input("Sudoku (empty places with 0):", "".join([str(n) for row in st.session_state.sudoku for n in row]))
+    user_input = st.text_input("Sudoku (81 digits):", "".join([str(n) for row in st.session_state.sudoku for n in row]))
     
-    b1, b2, b3, b4 = st.columns(4)
+    mapping = {
+        "Very Easy": 1, "Easy": 2, "Moderate": 4, 
+        "Intermediate": 6, "Challenging": 7, 
+        "Hard": 8, "Expert": 9, "Master": 10
+    }
+    
+    # Obtenemos la puntuación según el nivel (por defecto 5 si no lo encuentra)
+    score = mapping.get(st.session_state.diff_string, 5)
+    
+    st.markdown(f"Original sudoku level: **{st.session_state.diff_string} ({score}/10)**")
 
-    if b1.button("Enter",use_container_width=True):
+    b1, b2, b3, b4 = st.columns(4)
+    
+    if b1.button("Enter", use_container_width=True):
         if len(user_input) == 81:
-            st.session_state.sudoku = [[int(user_input[r * 9 + c]) for c in range(9)] for r in range(9)]
-            st.session_state.show_result = False
+            new_board = [[int(user_input[r * 9 + c]) for c in range(9)] for r in range(9)]
+            st.session_state.sudoku = copy.deepcopy(new_board)
+            st.session_state.sudoku_original = copy.deepcopy(new_board)
+            
+            # Limpiamos la memoria de pistas si metemos un Sudoku nuevo
+            st.session_state.simplified_cache = {} 
+            
+            update_difficulty(st.session_state.sudoku)
             st.rerun()
 
-    btn_text = "Candidatos ON" if st.session_state.show_candidates else "Candidatos OFF"
-    if b2.button(btn_text,use_container_width=True):
-        st.session_state.show_candidates = not st.session_state.show_candidates
-        st.rerun()
-
-    if b3.button("Reset",use_container_width=True):
+    if b2.button("Reset", use_container_width=True):
         st.session_state.sudoku = copy.deepcopy(st.session_state.sudoku_original)
-        st.session_state.show_result = False
         st.rerun()
 
-    if b4.button("Compute",use_container_width=True):
+    if b3.button("Compute", use_container_width=True):
         st.session_state.sudoku = copy.deepcopy(st.session_state.solved_sudoku)
-        st.session_state.show_result = True
         st.rerun()
-
-    to_choose_level = st.select_slider("Select level", options=["Easy", "Medium", "Hard"])
-
-    diff_string, diff_int = difficulty_eval(count_empty(st.session_state.sudoku_original), *st.session_state.strategies_total)
-    st.markdown(diff_string)
-    st.progress(diff_int/1)
+    
+    with b4:
+        st.toggle("Candidates", key="show_candidates")
+    st.divider()
+    
+    ALLOWED_MAP = {
+        "Easy": [0, 1], 
+        "Intermediate": [0, 1, 2, 3], 
+        "Hard": [0, 1, 2, 3, 4, 5], 
+        "Expert": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    }
+    
+    level = st.select_slider("Simplify to level:", options=list(ALLOWED_MAP.keys()))
+    
+    if st.button("Apply Simplification", use_container_width=True):
+        # Comprobamos si ya habíamos calculado el random para este nivel
+        if level not in st.session_state.simplified_cache:
+            new_sudoku, hints_added = apply_level(
+                st.session_state.sudoku_original, 
+                ALLOWED_MAP[level]
+            )
+            st.session_state.simplified_cache[level] = (new_sudoku, hints_added)
+        
+        cached_sudoku, hints_added = copy.deepcopy(st.session_state.simplified_cache[level])
+        st.session_state.sudoku = cached_sudoku
+        
+        if hints_added > 0:
+            st.toast(f"{hints_added} key hints added.", icon="✅")
+        else:
+            st.toast("The original sudoku already matches this level.", icon="ℹ️")
+            
+        st.rerun()
 
 with col3:
-    candidates = create_candidates(st.session_state.sudoku) if st.session_state.show_candidates else None
-    fig = display_sudoku(st.session_state.sudoku, candidates=candidates)
+    smart_candidates = create_candidates(st.session_state.sudoku) if st.session_state.show_candidates else None
+    fig = display_sudoku(st.session_state.sudoku, original_grid=st.session_state.sudoku_original, candidates=smart_candidates)
     st.pyplot(fig)
