@@ -331,13 +331,6 @@ def next_sudoku(sudoku):
     return sc, list(stats.values()), cm
 
 def difficulty_eval(count_empty, *stats):
-    # Damos MUCHO peso a las estrategias de nivel 5 en adelante
-    # El índice de stats corresponde al nivel de estrategia
-    
-    # Peso progresivo:
-    # Nivel 0-2 (Básico): peso 1
-    # Nivel 3-4 (Intermedio): peso 5
-    # Nivel 5+ (Avanzado): peso 20
     
     score = 0
     for i, count in enumerate(stats):
@@ -346,10 +339,8 @@ def difficulty_eval(count_empty, *stats):
         elif i <= 4:
             score += count * 5
         else:
-            score += count * 50  # ¡Aquí está la clave!
+            score += count * 50  
             
-    # Normalizamos el score a 0-100 para la barra de progreso
-    # (Ajusta el divisor 300 según lo que veas que resulta más cómodo)
     normalized_score = min(100, (score / 300) * 100)
     
     if normalized_score < 20:
@@ -364,30 +355,25 @@ def difficulty_eval(count_empty, *stats):
 def count_empty(sudoku): return sum(r.count(0) for r in sudoku)
 
 def simulate_until_stuck(board, allowed_indices):
-    """Resuelve el tablero. Devuelve True SOLO si se resuelve usando estrategias permitidas."""
     temp_board = copy.deepcopy(board)
     while True:
         sc_temp, stats, cm = next_sudoku(temp_board)
         
-        # 1. PRIMERO: Comprobamos si usó alguna estrategia prohibida para avanzar
         forbidden_used = any(stats[i] > 0 for i in range(11) if i not in allowed_indices)
         
         if forbidden_used:
-            return temp_board, False # ¡Hizo trampas! El nivel es demasiado difícil.
+            return temp_board, False 
             
-        # 2. LUEGO: Comprobamos si ya está resuelto
         if count_empty(sc_temp) == 0: 
-            return sc_temp, True # ¡Resuelto usando SOLO nivel fácil/intermedio!
+            return sc_temp, True 
             
-        # 3. Comprobamos si no pudo avanzar en absoluto
         if sum(stats) == 0:
-            return temp_board, False # Se atascó por completo
+            return temp_board, False 
             
-        # Si avanzó de forma válida, actualizamos y seguimos
         temp_board = sc_temp
 
 def apply_level(sudoku, allowed_indices):
-    random.seed(str(sudoku)) # Semilla fija basada en el Sudoku
+    random.seed(str(sudoku)) 
     working_sudoku = copy.deepcopy(sudoku)
     solved_board = copy.deepcopy(working_sudoku)
     solver_sudoku(solved_board) 
@@ -406,13 +392,9 @@ def apply_level(sudoku, allowed_indices):
             
         empty_cells = [(r, c) for r in range(9) for c in range(9) if working_sudoku[r][c] == 0]
         
-        # LÓGICA DE ELECCIÓN:
-        # Si el tablero ya es resoluble (y solo estamos rellenando para llegar a 3 pistas),
-        # o si simplemente queremos aleatoriedad, elegimos al azar de entre todas las vacías.
-        if forbidden_count == 0 or random.random() < 0.3: # 30% de probabilidad de ser aleatorio
+        if forbidden_count == 0 or random.random() < 0.3: 
             best_cell = random.choice(empty_cells)
         else:
-            # Búsqueda de la mejor casilla (inteligente)
             best_cell = None
             best_score = float('inf')
             random.shuffle(empty_cells)

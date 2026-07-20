@@ -38,7 +38,6 @@ with col1:
         "Hard": 8, "Expert": 9, "Master": 10
     }
     
-    # Obtenemos la puntuación según el nivel (por defecto 5 si no lo encuentra)
     score = mapping.get(st.session_state.diff_string, 5)
     
     st.markdown(f"Original sudoku level: **{st.session_state.diff_string} ({score}/10)**")
@@ -51,7 +50,6 @@ with col1:
             st.session_state.sudoku = copy.deepcopy(new_board)
             st.session_state.sudoku_original = copy.deepcopy(new_board)
             
-            # Limpiamos la memoria de pistas si metemos un Sudoku nuevo
             st.session_state.simplified_cache = {} 
             
             update_difficulty(st.session_state.sudoku)
@@ -79,7 +77,6 @@ with col1:
     level = st.select_slider("Simplify to level:", options=list(ALLOWED_MAP.keys()))
     
     if st.button("Apply Simplification", use_container_width=True):
-        # Comprobamos si ya habíamos calculado el random para este nivel
         if level not in st.session_state.simplified_cache:
             new_sudoku, hints_added = apply_level(
                 st.session_state.sudoku_original, 
