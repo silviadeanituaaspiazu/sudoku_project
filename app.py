@@ -10,9 +10,14 @@ st.markdown("Evaluate your sudoku and make it easier")
 
 def update_difficulty(grid):
     resolved_state, stats, _ = next_sudoku(copy.deepcopy(grid))
+    
+    if stats is None:
+        stats = {}
+    
     st.session_state.stats = stats 
     
     ordered_keys = ["ns", "hs", "sub", "pp", "bl", "hp", "xw", "yw", "sw", "bug", "fc"]
+    
     valores_ordenados = [stats.get(k, 0) for k in ordered_keys]
     
     diff_string, diff_int = difficulty_eval(count_empty(resolved_state), *valores_ordenados)
