@@ -77,7 +77,7 @@ def find_naked_subset(cm, n=2):
                             if (r, c) not in subset and (cm[r][c] & combined):
                                 cm[r][c] -= combined
                                 count, mod = count + len(cm[r][c] & combined), True
-                        if mod: return True, count
+                        if mod: return True, 1
     return False, count
 
 def pointing_pairs(cm):
@@ -132,7 +132,7 @@ def hidden_pairs(cm):
                     for r, c in [(r1, c1), (r2, c2)]:
                         for v in list(cm[r][c]):
                             if v != pairs[i] and v != pairs[j]: cm[r][c].remove(v); mod = True
-                    if mod: return True, 2
+                    if mod: return True, 1
         return False, 0
     for i in range(9):
         if proc(get_unit_coords("row", i))[0] or proc(get_unit_coords("column", i))[0] or proc(get_unit_coords("box", i))[0]: return True, 2
@@ -173,7 +173,7 @@ def swordfish(cm):
                     for r in range(9):
                         if r not in [s[0] for s in sub] and num in cm[r][col]:
                             cm[r][col].remove(num); mod = True
-                if mod: return True, 3
+                if mod: return True, 1
     return False, 0
 
 def y_wing(cm):
@@ -285,134 +285,145 @@ def bug_plus_one(cm):
         count_box = sum(1 for i in range(3) for j in range(3) if isinstance(cm[br+i][bc+j], set) and cand in cm[br+i][bc+j])
         if count_row == 3 or count_col == 3 or count_box == 3:
             cm[r][c] = {cand}
-            return True, 2
+            return True, 1
                   
     return False, 0
 
 
 def next_sudoku(sudoku):
     sc, cm = copy.deepcopy(sudoku), create_candidates(sudoku)
-    stats = {"ns":0, "hs":0, "sub":0, "pp":0, "bl":0, "hp":0, "xw":0, "sw":0, "yw":0, "fc":0, "bug":0}
+    stats = {
+        "ns": 0, "hs": 0, "sub": 0,  # 0, 1, 2: Básicas
+        "pp": 0, "bl": 0,            # 3, 4: Intermedias
+        "hp": 0, "xw": 0, "yw": 0,   # 5, 6, 7: Avanzadas
+        "sw": 0, "bug": 0, "fc": 0   # 8, 9, 10: Muy Avanzadas / Fuerza Bruta
+    }
     
     for _ in range(200):
-        m1, c1 = naked_single(sc, cm); stats["ns"] += c1
-        m2, c2 = hidden_single(sc, cm); stats["hs"] += c2
-        if m1 or m2: continue
-        
-        m3, c3 = find_naked_subset(cm, n=2); stats["sub"] += c3
-        if m3: continue
-        
-        m4, c4 = pointing_pairs(cm); stats["pp"] += c4
-        if m4: continue
-        
-        m5, c5 = box_line_reduction(cm); stats["bl"] += c5
-        if m5: continue
-        
-        m6, c6 = hidden_pairs(cm); stats["hp"] += c6
-        if m6: continue
-        
-        m7, c7 = x_wing(cm); stats["xw"] += c7
-        if m7: continue
-        
-        m8, c8 = swordfish(cm); stats["sw"] += c8
-        if m8: continue
-        
-        m9, c9 = y_wing(cm); stats["yw"] += c9
-        if m9: continue
-        
-        m10, c10 = forcing_chain(cm); stats["fc"] += c10
-        if m10: continue
-        
-        m11, c11 = bug_plus_one(cm); stats["bug"] += c11
-        if m11: continue
-        
-        break
-        
-    return sc, list(stats.values()), cm
-
-def difficulty_eval(count_empty, *stats):
-    
-    score = 0
-    for i, count in enumerate(stats):
-        if i <= 2:
-            score += count * 1
-        elif i <= 4:
-            score += count * 5
-        else:
-            score += count * 50  
+            m1, c1 = naked_single(sc, cm)
+            stats["ns"] += c1
+            m2, c2 = hidden_single(sc, cm)
+            stats["hs"] += c2
+            if m1 or m2: continue
             
-    normalized_score = min(100, (score / 300) * 100)
-    
-    if normalized_score < 20:
-        return "Easy", normalized_score
-    elif normalized_score < 50:
-        return "Intermediate", normalized_score
-    elif normalized_score < 80:
-        return "Hard", normalized_score
+            m4, c4 = pointing_pairs(cm)
+            stats["pp"] += c4
+            if m4: continue
+            
+            m5, c5 = box_line_reduction(cm)
+            stats["bl"] += c5
+            if m5: continue
+            
+            m3, c3 = find_naked_subset(cm, n=2)
+            stats["sub"] += c3
+            if m3: continue
+            
+            m3_3, c3_3 = find_naked_subset(cm, n=3)
+            stats["sub"] += c3_3
+            if m3_3: continue
+            
+            m3_4, c3_4 = find_naked_subset(cm, n=4)
+            stats["sub"] += c3_4
+            if m3_4: continue
+            
+            m6, c6 = hidden_pairs(cm)
+            stats["hp"] += c6
+            if m6: continue
+            
+            m7, c7 = x_wing(cm)
+            stats["xw"] += c7
+            if m7: continue
+            
+            m9, c9 = y_wing(cm)
+            stats["yw"] += c9
+            if m9: continue
+            
+            m8, c8 = swordfish(cm)
+            stats["sw"] += c8
+            if m8: continue
+            
+            m11, c11 = bug_plus_one(cm)
+            stats["bug"] += c11
+            if m11: continue
+            
+            m10, c10 = forcing_chain(cm)
+            stats["fc"] += c10
+            if m10: continue
+            
+            break
+        
+    return sc, stats, cm
+
+def difficulty_eval(*stats):
+    if any(stats[i] > 0 for i in [9, 10]):
+            level_name, level_val = "Expert", 10
+    elif any(stats[i] > 0 for i in [5, 6, 7, 8]):
+            level_name, level_val = "Hard", 7
+    elif any(stats[i] > 0 for i in [3, 4]):
+            level_name, level_val = "Intermediate", 4
     else:
-        return "Expert", normalized_score
+            level_name, level_val = "Easy", 1
+            
+    return level_name, level_val
 
 def count_empty(sudoku): return sum(r.count(0) for r in sudoku)
 
-def simulate_until_stuck(board, allowed_indices):
-    temp_board = copy.deepcopy(board)
+def simulate_until_stuck(sudoku, allowed_indices):
+    temp_sudoku = copy.deepcopy(sudoku)
     while True:
-        sc_temp, stats, cm = next_sudoku(temp_board)
+        sc_temp, stats, cm = next_sudoku(temp_sudoku)
         
         forbidden_used = any(stats[i] > 0 for i in range(11) if i not in allowed_indices)
         
         if forbidden_used:
-            return temp_board, False 
+            return temp_sudoku, False 
             
         if count_empty(sc_temp) == 0: 
             return sc_temp, True 
             
         if sum(stats) == 0:
-            return temp_board, False 
+            return temp_sudoku, False 
             
-        temp_board = sc_temp
+        temp_sudoku = sc_temp
 
-def apply_level(sudoku, allowed_indices):
-    random.seed(str(sudoku)) 
-    working_sudoku = copy.deepcopy(sudoku)
-    solved_board = copy.deepcopy(working_sudoku)
-    solver_sudoku(solved_board) 
+def apply_level(grid, allowed_indices):
+    solved_state, _, _ = next_sudoku(copy.deepcopy(grid))
+    current_grid = copy.deepcopy(grid)
+    hints_added = 0
     
-    if len(allowed_indices) <= 2: max_hints = 35
-    elif len(allowed_indices) <= 5: max_hints = 15
-    else: max_hints = 0
-    
-    added_hints = 0
-    while added_hints < max_hints:
-        sc_temp, stats, _ = next_sudoku(copy.deepcopy(working_sudoku))
-        forbidden_count = sum(stats[i] for i in range(11) if i not in allowed_indices)
+    if allowed_indices == [0, 1, 2]:
+        for _ in range(3):
+            empty_cells = [(r, c) for r in range(9) for c in range(9) if current_grid[r][c] == 0]
+            if empty_cells:
+                r, c = random.choice(empty_cells)
+                current_grid[r][c] = solved_state[r][c]
+                hints_added += 1
+
+    while True:
+        temp_resolved, temp_stats, temp_cm = next_sudoku(copy.deepcopy(current_grid))
         
-        if forbidden_count == 0 and not (len(allowed_indices) <= 2 and added_hints < 3):
+        used_indices = {i for i, count in enumerate(temp_stats.values()) if count > 0}
+        forbidden = [i for i in used_indices if i not in allowed_indices]
+        
+        if count_empty(temp_resolved) == 0 and not forbidden:
             break
             
-        empty_cells = [(r, c) for r in range(9) for c in range(9) if working_sudoku[r][c] == 0]
+        cells_in_forbidden = []
+        if forbidden:
+            for r in range(9):
+                for c in range(9):
+                    if current_grid[r][c] == 0 and isinstance(temp_cm[r][c], set):
+                        if any(idx in forbidden for idx in range(11)): 
+                            cells_in_forbidden.append((r, c))
         
-        if forbidden_count == 0 or random.random() < 0.3: 
-            best_cell = random.choice(empty_cells)
+        if cells_in_forbidden:
+            r, c = random.choice(cells_in_forbidden)
         else:
-            best_cell = None
-            best_score = float('inf')
-            random.shuffle(empty_cells)
-            for r, c in empty_cells[:20]:
-                test_board = copy.deepcopy(working_sudoku)
-                test_board[r][c] = solved_board[r][c]
-                _, test_stats, _ = next_sudoku(test_board)
-                test_forbidden = sum(test_stats[i] for i in range(11) if i not in allowed_indices)
-                if test_forbidden < best_score:
-                    best_score = test_forbidden
-                    best_cell = (r, c)
-                if test_forbidden == 0: break
-                
-        if best_cell:
-            working_sudoku[best_cell[0]][best_cell[1]] = solved_board[best_cell[0]][best_cell[1]]
-            added_hints += 1
-        else:
-            break
-    
-    random.seed()
-    return working_sudoku, added_hints
+            empty_cells = [(r, c) for r in range(9) for c in range(9) if current_grid[r][c] == 0]
+            if not empty_cells: break
+            r, c = random.choice(empty_cells)
+            
+        current_grid[r][c] = solved_state[r][c]
+        hints_added += 1
+        
+    return current_grid, hints_added
