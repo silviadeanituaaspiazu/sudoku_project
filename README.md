@@ -2,7 +2,7 @@
 This project simplifies Sudoku puzzles by categorizing them and analyzing the different strategies required to solve them.
 The difficulty is split into three levels. Each technique is defined and explained below with an example.
 
-Try: [Sudoku Solver Pro en Streamlit](http://localhost:8501)
+Try: [Sudoku Difficulty Architect](https://sudokuproject-8flhbbsrvw3tfwza9wfngb.streamlit.app)
 
 ## Easy strategies
 

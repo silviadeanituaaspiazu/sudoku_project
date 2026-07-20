@@ -2,6 +2,7 @@ import streamlit as st
 import copy
 from src.strategies import next_sudoku, difficulty_eval, count_empty, create_candidates, apply_level
 from src.display import display_sudoku
+from src.image import scan_sudoku_image
 
 st.set_page_config(page_title="Sudoku", layout="wide")
 st.header("Sudoku Difficulty Architect", divider=True)
@@ -30,7 +31,23 @@ if 'sudoku' not in st.session_state:
 col1, col2, col3 = st.columns([3, 1, 3])
 
 with col1:
-    user_input = st.text_input("Sudoku (81 digits):", "".join([str(n) for row in st.session_state.sudoku for n in row]))
+    with col1:
+        current_grid_str = "".join([str(n) for row in st.session_state.sudoku for n in row])
+        user_input = st.text_input("Sudoku (81 digits):", current_grid_str)
+        
+        uploaded_file = st.file_uploader("Or upload a photo of the Sudoku:", type=["jpg", "png", "jpeg"])
+        
+        if uploaded_file is not None:
+            if st.button("Scan image", use_container_width=True):
+                with st.spinner("Reading Sudoku..."):
+                    try:
+                        new_board = scan_sudoku_image(uploaded_file)
+                        st.session_state.sudoku = new_board
+                        st.session_state.sudoku_original = copy.deepcopy(new_board)
+                        update_difficulty(st.session_state.sudoku)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error reading the image: {e}")
     
     mapping = {
         "Very Easy": 1, "Easy": 2, "Moderate": 4, 
